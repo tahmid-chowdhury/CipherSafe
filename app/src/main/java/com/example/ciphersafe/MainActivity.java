@@ -1,67 +1,169 @@
 package com.example.ciphersafe;
 
 import android.os.Bundle;
-
-import com.google.android.material.snackbar.Snackbar;
-
+import androidx.annotation.NonNull;
 import androidx.appcompat.app.AppCompatActivity;
-
-import android.view.View;
-
+import androidx.biometric.BiometricPrompt;
+import androidx.core.content.ContextCompat;
 import androidx.navigation.NavController;
 import androidx.navigation.Navigation;
 import androidx.navigation.ui.AppBarConfiguration;
 import androidx.navigation.ui.NavigationUI;
 
-import com.example.ciphersafe.databinding.ActivityMainBinding;
-
+import android.util.Log;
 import android.view.Menu;
 import android.view.MenuItem;
+import android.view.View;
+
+import com.example.ciphersafe.databinding.ActivityMainBinding;
+import com.example.ciphersafe.security.SecurityManager;
+import com.example.ciphersafe.DatabaseManager;
+import com.example.ciphersafe.simulation.HackerModeManager;
+import com.google.android.material.snackbar.Snackbar;
+
+import java.util.concurrent.Executor;
 
 public class MainActivity extends AppCompatActivity {
+    private static final String TAG = "CipherSafe";
 
+    // UI Components
     private AppBarConfiguration appBarConfiguration;
     private ActivityMainBinding binding;
+    private NavController navController;
+
+    // Module Managers
+    private SecurityManager securityManager;
+    private DatabaseManager databaseManager;
+    private HackerModeManager hackerModeManager;
+
+    // Biometric Authentication
+    private Executor executor;
+    private BiometricPrompt biometricPrompt;
+    private BiometricPrompt.PromptInfo promptInfo;
 
     @Override
     protected void onCreate(Bundle savedInstanceState) {
         super.onCreate(savedInstanceState);
 
+        // Initialize binding and set content view
         binding = ActivityMainBinding.inflate(getLayoutInflater());
         setContentView(binding.getRoot());
-
         setSupportActionBar(binding.toolbar);
 
-        NavController navController = Navigation.findNavController(this, R.id.nav_host_fragment_content_main);
+        // Initialize module managers
+        initializeManagers();
+
+        // Set up navigation
+        setupNavigation();
+
+        // Set up biometric authentication
+        setupBiometricAuth();
+
+        // Set up FAB for adding new passwords
+        setupFab();
+    }
+
+    /**
+     * Initialize all module managers for the app
+     */
+    private void initializeManagers() {
+        // Initialize Security Manager for encryption, hashing, and key management
+        securityManager = new SecurityManager(this);
+
+        // Initialize Database Manager for Firebase/cloud operations
+        databaseManager = new DatabaseManager(this);
+
+        // Initialize Hacker Mode Manager for simulation features
+        hackerModeManager = new HackerModeManager(this);
+
+        Log.d(TAG, "All managers initialized successfully");
+    }
+
+    /**
+     * Set up the navigation components
+     */
+    private void setupNavigation() {
+        navController = Navigation.findNavController(this, R.id.nav_host_fragment_content_main);
         appBarConfiguration = new AppBarConfiguration.Builder(navController.getGraph()).build();
         NavigationUI.setupActionBarWithNavController(this, navController, appBarConfiguration);
+    }
 
-        binding.fab.setOnClickListener(new View.OnClickListener() {
-            @Override
-            public void onClick(View view) {
-                Snackbar.make(view, "Replace with your own action", Snackbar.LENGTH_LONG)
-                        .setAnchorView(R.id.fab)
-                        .setAction("Action", null).show();
-            }
+    /**
+     * Set up biometric authentication using BiometricPrompt
+     */
+    private void setupBiometricAuth() {
+        executor = ContextCompat.getMainExecutor(this);
+        biometricPrompt = new BiometricPrompt(this, executor,
+                new BiometricPrompt.AuthenticationCallback() {
+                    @Override
+                    public void onAuthenticationError(int errorCode, @NonNull CharSequence errString) {
+                        super.onAuthenticationError(errorCode, errString);
+                        Snackbar.make(binding.getRoot(), "Authentication error: " + errString,
+                                Snackbar.LENGTH_SHORT).show();
+                    }
+
+                    @Override
+                    public void onAuthenticationSucceeded(@NonNull BiometricPrompt.AuthenticationResult result) {
+                        super.onAuthenticationSucceeded(result);
+                        // Navigate to password list on successful authentication
+                        navController.navigate(R.id.action_authFragment_to_passwordListFragment);
+                    }
+
+                    @Override
+                    public void onAuthenticationFailed() {
+                        super.onAuthenticationFailed();
+                        Snackbar.make(binding.getRoot(), "Authentication failed",
+                                Snackbar.LENGTH_SHORT).show();
+                    }
+                });
+
+        // Set up prompt info for biometric dialog
+        promptInfo = new BiometricPrompt.PromptInfo.Builder()
+                .setTitle("Biometric Authentication")
+                .setSubtitle("Log in using your biometric credential")
+                .setNegativeButtonText("Cancel")
+                .build();
+    }
+
+    /**
+     * Set up FAB to add new password entries
+     */
+    private void setupFab() {
+        binding.fab.setImageResource(android.R.drawable.ic_input_add);
+        binding.fab.setOnClickListener(view -> {
+            // Navigate to add password screen
+            // This will be replaced with actual navigation when we update the nav graph
+            Snackbar.make(view, "Add new password", Snackbar.LENGTH_LONG)
+                    .setAnchorView(R.id.fab)
+                    .setAction("Add", v -> {
+                        navController.navigate(R.id.action_to_addPasswordFragment);
+                    }).show();
         });
+    }
+
+    /**
+     * Authenticate user with biometrics
+     */
+    public void authenticateUser() {
+        biometricPrompt.authenticate(promptInfo);
     }
 
     @Override
     public boolean onCreateOptionsMenu(Menu menu) {
-        // Inflate the menu; this adds items to the action bar if it is present.
         getMenuInflater().inflate(R.menu.menu_main, menu);
         return true;
     }
 
     @Override
     public boolean onOptionsItemSelected(MenuItem item) {
-        // Handle action bar item clicks here. The action bar will
-        // automatically handle clicks on the Home/Up button, so long
-        // as you specify a parent activity in AndroidManifest.xml.
         int id = item.getItemId();
 
-        //noinspection SimplifiableIfStatement
         if (id == R.id.action_settings) {
+            navController.navigate(R.id.action_to_settingsFragment);
+            return true;
+        } else if (id == R.id.action_hacker_mode) {
+            // Launch hacker mode simulation
+            hackerModeManager.startSimulation();
             return true;
         }
 
@@ -73,5 +175,18 @@ public class MainActivity extends AppCompatActivity {
         NavController navController = Navigation.findNavController(this, R.id.nav_host_fragment_content_main);
         return NavigationUI.navigateUp(navController, appBarConfiguration)
                 || super.onSupportNavigateUp();
+    }
+
+    // Getters for module managers
+    public SecurityManager getSecurityManager() {
+        return securityManager;
+    }
+
+    public DatabaseManager getDatabaseManager() {
+        return databaseManager;
+    }
+
+    public HackerModeManager getHackerModeManager() {
+        return hackerModeManager;
     }
 }
