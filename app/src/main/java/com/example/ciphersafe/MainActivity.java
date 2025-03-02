@@ -17,6 +17,7 @@ import android.view.View;
 
 import com.example.ciphersafe.databinding.ActivityMainBinding;
 import com.example.ciphersafe.security.SecurityManager;
+import com.example.ciphersafe.security.FirebaseAuthManager;
 import com.example.ciphersafe.DatabaseManager;
 import com.example.ciphersafe.simulation.HackerModeManager;
 import com.google.android.material.snackbar.Snackbar;
@@ -35,6 +36,7 @@ public class MainActivity extends AppCompatActivity {
     private SecurityManager securityManager;
     private DatabaseManager databaseManager;
     private HackerModeManager hackerModeManager;
+    private FirebaseAuthManager firebaseAuthManager;
 
     // Biometric Authentication
     private Executor executor;
@@ -69,6 +71,9 @@ public class MainActivity extends AppCompatActivity {
     private void initializeManagers() {
         // Initialize Security Manager for encryption, hashing, and key management
         securityManager = new SecurityManager(this);
+
+        // Initialize Firebase Auth Manager
+        firebaseAuthManager = new FirebaseAuthManager();
 
         // Initialize Database Manager for Firebase/cloud operations
         databaseManager = new DatabaseManager(this);
@@ -180,6 +185,10 @@ public class MainActivity extends AppCompatActivity {
     // Getters for module managers
     public SecurityManager getSecurityManager() {
         return securityManager;
+    }
+
+    public FirebaseAuthManager getFirebaseAuthManager() {
+        return firebaseAuthManager;
     }
 
     public DatabaseManager getDatabaseManager() {
