@@ -11,7 +11,7 @@ import androidx.fragment.app.Fragment;
 import androidx.navigation.fragment.NavHostFragment;
 
 import com.example.ciphersafe.databinding.FragmentFirstBinding;
-import com.example.ciphersafe.security.SecurityManager;
+import com.example.ciphersafe.SecurityManager;
 import com.example.ciphersafe.FirebaseAuthManager;
 import com.google.firebase.auth.FirebaseAuth;
 
@@ -39,11 +39,13 @@ public class FirstFragment extends Fragment {
             authManager = ((MainActivity) getActivity()).getFirebaseAuthManager();
         }
 
+        binding.hackerButton.setOnClickListener(v -> enterHackerMode());
         binding.loginButton.setOnClickListener(v -> attemptLogin());
-
         binding.registerButton.setOnClickListener(v ->
                 NavHostFragment.findNavController(FirstFragment.this)
                         .navigate(R.id.action_FirstFragment_to_SecondFragment)
+
+
         );
 
         binding.biometricButton.setOnClickListener(v -> {
@@ -78,6 +80,11 @@ public class FirstFragment extends Fragment {
                 Toast.makeText(getContext(), "Login failed: " + errorMessage, Toast.LENGTH_LONG).show();
             }
         });
+    }
+
+    private void enterHackerMode() {
+        NavHostFragment.findNavController(FirstFragment.this)
+                .navigate(R.id.action_to_hackerModeFragment);
     }
 
     @Override

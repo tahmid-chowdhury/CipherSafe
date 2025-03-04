@@ -27,9 +27,6 @@ public class HackerModeManager {
         Log.d(TAG, "Hacker Mode manager initialized");
     }
 
-    /**
-     * Start the breach simulation by retrieving encrypted data from Firebase
-     */
     public void startSimulation() {
         Log.d(TAG, "Starting breach simulation");
         simulatedBreachData.clear();

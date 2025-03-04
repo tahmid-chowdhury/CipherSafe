@@ -1,159 +1,108 @@
-package com.example.ciphersafe.security;
+package com.example.ciphersafe;
 
 import android.content.Context;
-import android.security.keystore.KeyGenParameterSpec;
-import android.security.keystore.KeyProperties;
+import android.content.SharedPreferences;
+import android.util.Base64;
 import android.util.Log;
 
-import java.security.KeyStore;
+import java.nio.charset.StandardCharsets;
 import java.security.MessageDigest;
 import java.security.SecureRandom;
-import java.util.Base64;
 import javax.crypto.Cipher;
-import javax.crypto.KeyGenerator;
 import javax.crypto.SecretKey;
 import javax.crypto.spec.GCMParameterSpec;
-import javax.crypto.spec.IvParameterSpec;
+import javax.crypto.spec.SecretKeySpec;
 
 public class SecurityManager {
     private static final String TAG = "SecurityManager";
-    private static final String KEYSTORE_PROVIDER = "AndroidKeyStore";
-    private static final String AES_KEY_ALIAS = "ciphersafe_encryption_key";
+    private static final String PREFS_NAME = "CryptoPrefs";
+    private static final String PREF_KEY = "AESKey";
     private static final int GCM_TAG_LENGTH = 128;
-
+    private static final int IV_SIZE = 12;
     private Context context;
-    private KeyStore keyStore;
 
     public SecurityManager(Context context) {
         this.context = context;
+    }
+
+    public String encryptData(String plaintext, String email) {
         try {
-            initializeKeyStore();
-        } catch (Exception e) {
-            Log.e(TAG, "Error initializing security module", e);
-        }
-    }
+            byte[] iv = generateDeterministicIV(email);
 
-    /**
-     * Initialize Android KeyStore for secure key storage
-     */
-    private void initializeKeyStore() throws Exception {
-        keyStore = KeyStore.getInstance(KEYSTORE_PROVIDER);
-        keyStore.load(null);
+            SecretKey key = getOrGenerateKey();
 
-        if (!keyStore.containsAlias(AES_KEY_ALIAS)) {
-            generateEncryptionKey();
-        }
-    }
+            int salt = email.replaceAll("\\D", "").length();
+            byte[] saltBytes = String.valueOf(salt).getBytes(StandardCharsets.UTF_8);
 
-    /**
-     * Generate AES encryption key for password encryption
-     */
-    private void generateEncryptionKey() throws Exception {
-        KeyGenerator keyGenerator = KeyGenerator.getInstance(
-                KeyProperties.KEY_ALGORITHM_AES, KEYSTORE_PROVIDER);
-
-        KeyGenParameterSpec keyGenParameterSpec = new KeyGenParameterSpec.Builder(
-                AES_KEY_ALIAS,
-                KeyProperties.PURPOSE_ENCRYPT | KeyProperties.PURPOSE_DECRYPT)
-                .setBlockModes(KeyProperties.BLOCK_MODE_GCM)
-                .setEncryptionPaddings(KeyProperties.ENCRYPTION_PADDING_NONE)
-                .setKeySize(256)
-                .build();
-
-        keyGenerator.init(keyGenParameterSpec);
-        keyGenerator.generateKey();
-    }
-
-    /**
-     * Generate a random salt for password hashing
-     */
-    public byte[] generateSalt() {
-        SecureRandom random = new SecureRandom();
-        byte[] salt = new byte[16];
-        random.nextBytes(salt);
-        return salt;
-    }
-
-    /**
-     * Hash password with SHA-256 and provided salt
-     */
-    public String hashPassword(String password, byte[] salt) {
-        try {
-            MessageDigest md = MessageDigest.getInstance("SHA-256");
-            md.update(salt);
-            byte[] hashedPassword = md.digest(password.getBytes());
-            return null;
-        } catch (Exception e) {
-            Log.e(TAG, "Error hashing password", e);
-            return null;
-        }
-    }
-
-    /**
-     * Encrypt data using AES encryption
-     */
-    public String encryptData(String plaintext) {
-        try {
-            final SecretKey key = (SecretKey) keyStore.getKey(AES_KEY_ALIAS, null);
+            byte[] combined = new byte[saltBytes.length + plaintext.getBytes().length];
+            System.arraycopy(saltBytes, 0, combined, 0, saltBytes.length);
+            System.arraycopy(plaintext.getBytes(), 0, combined, saltBytes.length, plaintext.getBytes().length);
 
             Cipher cipher = Cipher.getInstance("AES/GCM/NoPadding");
-            cipher.init(Cipher.ENCRYPT_MODE, key);
+            cipher.init(Cipher.ENCRYPT_MODE, key, new GCMParameterSpec(GCM_TAG_LENGTH, iv));
+            byte[] encryptedData = cipher.doFinal(combined);
 
-            byte[] iv = cipher.getIV();
-            byte[] encryptedData = cipher.doFinal(plaintext.getBytes());
+            byte[] finalCombined = new byte[IV_SIZE + encryptedData.length];
+            System.arraycopy(iv, 0, finalCombined, 0, IV_SIZE);
+            System.arraycopy(encryptedData, 0, finalCombined, IV_SIZE, encryptedData.length);
 
-            // Combine IV and encrypted data
-            byte[] combined = new byte[iv.length + encryptedData.length];
-            System.arraycopy(iv, 0, combined, 0, iv.length);
-            System.arraycopy(encryptedData, 0, combined, iv.length, encryptedData.length);
-
-            return null;
+            return Base64.encodeToString(finalCombined, Base64.DEFAULT);
         } catch (Exception e) {
             Log.e(TAG, "Error encrypting data", e);
             return null;
         }
     }
 
-    /**
-     * Decrypt data using AES encryption
-     */
-    public String decryptData(String encryptedText) {
+    public String decryptData(String encryptedText, String email) {
         try {
-            byte[] combined = null;
+            byte[] combined = Base64.decode(encryptedText, Base64.DEFAULT);
 
-            // Extract IV and encrypted data
-            byte[] iv = new byte[12]; // GCM IV size
-            byte[] encryptedData = new byte[combined.length - 12];
-            System.arraycopy(combined, 0, iv, 0, 12);
-            System.arraycopy(combined, 12, encryptedData, 0, encryptedData.length);
+            byte[] iv = generateDeterministicIV(email);
+            byte[] encryptedData = new byte[combined.length - IV_SIZE];
+            System.arraycopy(combined, IV_SIZE, encryptedData, 0, encryptedData.length);
 
-            final SecretKey key = (SecretKey) keyStore.getKey(AES_KEY_ALIAS, null);
+            SecretKey key = getOrGenerateKey();
+
 
             Cipher cipher = Cipher.getInstance("AES/GCM/NoPadding");
-            GCMParameterSpec spec = new GCMParameterSpec(GCM_TAG_LENGTH, iv);
-            cipher.init(Cipher.DECRYPT_MODE, key, spec);
-
+            cipher.init(Cipher.DECRYPT_MODE, key, new GCMParameterSpec(GCM_TAG_LENGTH, iv));
             byte[] decryptedData = cipher.doFinal(encryptedData);
-            return new String(decryptedData);
+
+            int salt = email.replaceAll("\\D", "").length();
+            byte[] saltBytes = String.valueOf(salt).getBytes(StandardCharsets.UTF_8);
+            byte[] plaintextBytes = new byte[decryptedData.length - saltBytes.length];
+            System.arraycopy(decryptedData, saltBytes.length, plaintextBytes, 0, plaintextBytes.length);
+
+            return new String(plaintextBytes, StandardCharsets.UTF_8);
         } catch (Exception e) {
             Log.e(TAG, "Error decrypting data", e);
             return null;
         }
     }
 
-    /**
-     * Generate a strong random password
-     */
-    public String generateRandomPassword(int length) {
-        String chars = "ABCDEFGHIJKLMNOPQRSTUVWXYZabcdefghijklmnopqrstuvwxyz0123456789!@#$%^&*()";
-        StringBuilder sb = new StringBuilder();
-        SecureRandom random = new SecureRandom();
+    private byte[] generateDeterministicIV(String email) throws Exception {
+        MessageDigest digest = MessageDigest.getInstance("SHA-256");
+        byte[] hash = digest.digest(email.getBytes(StandardCharsets.UTF_8));
+        byte[] iv = new byte[IV_SIZE];
+        System.arraycopy(hash, 0, iv, 0, IV_SIZE);
+        return iv;
+    }
 
-        for (int i = 0; i < length; i++) {
-            int randomIndex = random.nextInt(chars.length());
-            sb.append(chars.charAt(randomIndex));
+    private SecretKey getOrGenerateKey() {
+        SharedPreferences prefs = context.getSharedPreferences(PREFS_NAME, Context.MODE_PRIVATE);
+        String encodedKey = prefs.getString(PREF_KEY, null);
+
+        if (encodedKey != null) {
+            byte[] decodedKey = Base64.decode(encodedKey, Base64.DEFAULT);
+            return new SecretKeySpec(decodedKey, "AES");
+        } else {
+            byte[] keyBytes = new byte[32];
+            new SecureRandom().nextBytes(keyBytes);
+            String newEncodedKey = Base64.encodeToString(keyBytes, Base64.DEFAULT);
+
+            prefs.edit().putString(PREF_KEY, newEncodedKey).apply();
+
+            return new SecretKeySpec(keyBytes, "AES");
         }
-
-        return sb.toString();
     }
 }

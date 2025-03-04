@@ -19,6 +19,11 @@
         <action
             android:id="@+id/action_to_userProfileFragment"
             app:destination="@id/userProfileFragment" />
+
+        <action
+            android:id="@+id/action_to_hackerModeFragment"
+            app:destination="@id/hackerModeFragment" />
+
     </fragment>
 
     <fragment
@@ -32,6 +37,11 @@
             app:destination="@id/FirstFragment" />
     </fragment>
 
+    <fragment
+        android:id="@+id/hackerModeFragment"
+        android:name="com.example.ciphersafe.HackerModeFragment"
+        android:label="Hacker Mode"
+        tools:layout="@layout/fragment_hacker_mode" />
 
 
 

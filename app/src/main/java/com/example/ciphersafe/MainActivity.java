@@ -16,7 +16,7 @@ import android.view.MenuItem;
 import android.view.View;
 
 import com.example.ciphersafe.databinding.ActivityMainBinding;
-import com.example.ciphersafe.security.SecurityManager;
+import com.example.ciphersafe.SecurityManager;
 import com.example.ciphersafe.FirebaseAuthManager;
 import com.example.ciphersafe.DatabaseManager;
 import com.example.ciphersafe.HackerModeManager;
@@ -29,18 +29,15 @@ import java.util.concurrent.Executor;
 public class MainActivity extends AppCompatActivity {
     private static final String TAG = "CipherSafe";
 
-    // UI Components
     private AppBarConfiguration appBarConfiguration;
     private ActivityMainBinding binding;
     private NavController navController;
 
-    // Module Managers
     private SecurityManager securityManager;
     private DatabaseManager databaseManager;
     private HackerModeManager hackerModeManager;
     private FirebaseAuthManager firebaseAuthManager;
 
-    // Biometric Authentication
     private Executor executor;
     private BiometricPrompt biometricPrompt;
     private BiometricPrompt.PromptInfo promptInfo;
@@ -55,16 +52,12 @@ public class MainActivity extends AppCompatActivity {
         setContentView(binding.getRoot());
         setSupportActionBar(binding.toolbar);
         FirebaseAuth.getInstance().signOut();
-        // Initialize module managers
         initializeManagers();
 
-        // Set up navigation
         setupNavigation();
 
-        // Set up biometric authentication
         setupBiometricAuth();
 
-//        // Set up FAB for adding new passwords
 //        setupFab();
     }
 
@@ -76,13 +69,11 @@ public class MainActivity extends AppCompatActivity {
         securityManager = new SecurityManager(this);
 
         // Initialize Firebase Auth Manager
-        firebaseAuthManager = new FirebaseAuthManager();
+        firebaseAuthManager = new FirebaseAuthManager(securityManager);
 
         // Initialize Database Manager for Firebase/cloud operations
         databaseManager = new DatabaseManager(this);
 
-        // Initialize Hacker Mode Manager for simulation features
-        hackerModeManager = new HackerModeManager(this);
 
         Log.d(TAG, "All managers initialized successfully");
     }
@@ -185,7 +176,7 @@ public class MainActivity extends AppCompatActivity {
                 || super.onSupportNavigateUp();
     }
 
-    // Getters for module managers
+
     public SecurityManager getSecurityManager() {
         return securityManager;
     }

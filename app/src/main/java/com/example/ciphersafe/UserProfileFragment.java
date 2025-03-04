@@ -14,17 +14,21 @@ import com.google.firebase.database.DatabaseError;
 import com.google.firebase.database.DatabaseReference;
 import com.google.firebase.database.FirebaseDatabase;
 import com.google.firebase.database.ValueEventListener;
+import com.example.ciphersafe.SecurityManager;
 
 public class UserProfileFragment extends Fragment {
-
     private TextView emailTextView;
     private TextView usernameTextView;
     private TextView passwordTextView;
     private DatabaseReference databaseReference;
     private FirebaseUser currentUser;
+    private SecurityManager securityManager;
 
     @Override
     public View onCreateView(@NonNull LayoutInflater inflater, ViewGroup container, Bundle savedInstanceState) {
+
+            securityManager = ((MainActivity) getActivity()).getSecurityManager();
+
         View view = inflater.inflate(R.layout.fragment_user_profile, container, false);
 
         emailTextView = view.findViewById(R.id.emailTextView);
@@ -39,15 +43,16 @@ public class UserProfileFragment extends Fragment {
                 public void onDataChange(@NonNull DataSnapshot snapshot) {
                     User user = snapshot.getValue(User.class);
                     if (user != null) {
+
                         emailTextView.setText(user.getEmail());
                         usernameTextView.setText(user.getUsername());
-                        passwordTextView.setText(user.getPassword());
-                    }
+                        String plaintext = securityManager.decryptData(user.getPassword(), emailTextView.getText().toString());
+                        passwordTextView.setText(plaintext);                    }
                 }
 
                 @Override
                 public void onCancelled(@NonNull DatabaseError error) {
-                    // Handle possible errors.
+
                 }
             });
         }

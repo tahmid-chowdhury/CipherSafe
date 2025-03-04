@@ -65,12 +65,10 @@ public class SecondFragment extends Fragment {
             return;
         }
 
-        // ✅ Register user in Firebase
         authManager.registerUser(email, password, username, new FirebaseAuthManager.FirebaseAuthListener() {
             @Override
             public void onSuccess(String message) {
                 showToast(message);
-                // Navigate back to login screen after registration
                 NavHostFragment.findNavController(SecondFragment.this)
                         .navigate(R.id.action_SecondFragment_to_FirstFragment);
             }

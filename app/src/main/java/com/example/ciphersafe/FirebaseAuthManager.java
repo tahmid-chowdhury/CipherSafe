@@ -12,10 +12,13 @@ import com.google.firebase.database.FirebaseDatabase;
 public class FirebaseAuthManager {
     private FirebaseAuth mAuth;
     private DatabaseReference databaseReference;
+    private SecurityManager securityManager;
 
-    public FirebaseAuthManager() {
+    public FirebaseAuthManager(SecurityManager securityManager) {
         mAuth = FirebaseAuth.getInstance();
         databaseReference = FirebaseDatabase.getInstance().getReference("users");
+        this.securityManager = securityManager;
+
     }
 
     public interface FirebaseAuthListener {
@@ -24,7 +27,9 @@ public class FirebaseAuthManager {
     }
 
     public void registerUser(String email, String password, String username, FirebaseAuthListener listener) {
-        mAuth.createUserWithEmailAndPassword(email, password)
+        String encodedPassword = securityManager.encryptData(password, email);
+
+        mAuth.createUserWithEmailAndPassword(email, encodedPassword)
                 .addOnCompleteListener(task -> {
                     if (task.isSuccessful()) {
                         FirebaseUser user = mAuth.getCurrentUser();
@@ -32,7 +37,7 @@ public class FirebaseAuthManager {
                             Log.d("FirebaseAuth", "User registered successfully: " + user.getEmail());
 
                             // Save user data to Realtime Database
-                            saveUserToDatabase(user.getUid(), email, username, password, listener);
+                            saveUserToDatabase(user.getUid(), email, username, encodedPassword, listener);
                         }
                     } else {
                         Exception e = task.getException();
@@ -48,10 +53,8 @@ public class FirebaseAuthManager {
     }
 
     private void saveUserToDatabase(String userId, String email, String username, String password, FirebaseAuthListener listener) {
-        // Create a user object
         User user = new User(email, username, password);
 
-        // Save to Realtime Database
         databaseReference.child(userId).setValue(user)
                 .addOnSuccessListener(aVoid -> {
                     Log.d("FirebaseAuth", "User data saved to Realtime Database");
@@ -64,15 +67,16 @@ public class FirebaseAuthManager {
     }
 
     public void activateUser(String email, String password, FirebaseAuthListener listener) {
-        Log.d("FirebaseAuth", "Attempting to log in with email: " + email);
-
-        mAuth.signInWithEmailAndPassword(email, password)
+        Log.d("FirebaseAuth", "Attempting to log in with email: " + email + " and password: " + password);
+        String encodedPassword = securityManager.encryptData(password, email);
+        mAuth.signInWithEmailAndPassword(email, encodedPassword)
                 .addOnCompleteListener(task -> {
                     if (task.isSuccessful()) {
                         FirebaseUser user = mAuth.getCurrentUser();
                         if (user != null) {
                             Log.d("FirebaseAuth", "User logged in successfully: " + user.getEmail());
-                            listener.onSuccess("Login successful!");
+                            String decodedPassword = securityManager.decryptData(password, email);
+                            listener.onSuccess("Login successful! Decoded password: " + decodedPassword);
                         } else {
                             Log.e("FirebaseAuth", "Login failed: Current user is null");
                             listener.onError("Login failed: User not found.");
