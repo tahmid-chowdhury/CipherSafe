@@ -1,0 +1,40 @@
+{
+  "project_info": {
+    "project_number": "106722544133",
+    "firebase_url": "https://ciphersafe-ab27f-default-rtdb.firebaseio.com",
+    "project_id": "ciphersafe-ab27f",
+    "storage_bucket": "ciphersafe-ab27f.firebasestorage.app"
+  },
+  "client": [
+    {
+      "client_info": {
+        "mobilesdk_app_id": "1:106722544133:android:e76e91625020fe9585ea6c",
+        "android_client_info": {
+          "package_name": "com.example.ciphersafe"
+        }
+      },
+      "oauth_client": [
+        {
+          "client_id": "106722544133-r124uij0qfsj13k81amoicqmu3e68prn.apps.googleusercontent.com",
+          "client_type": 3
+        }
+      ],
+      "api_key": [
+        {
+          "current_key": "AIzaSyDkYRMNVCykVFMcuvEFvnVKK_bRt4MWrzg"
+        }
+      ],
+      "services": {
+        "appinvite_service": {
+          "other_platform_oauth_client": [
+            {
+              "client_id": "106722544133-r124uij0qfsj13k81amoicqmu3e68prn.apps.googleusercontent.com",
+              "client_type": 3
+            }
+          ]
+        }
+      }
+    }
+  ],
+  "configuration_version": "1"
+}
