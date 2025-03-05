@@ -10,6 +10,10 @@ import androidx.navigation.Navigation;
 import androidx.navigation.ui.AppBarConfiguration;
 import androidx.navigation.ui.NavigationUI;
 
+import android.widget.Toast;
+import androidx.biometric.BiometricManager;
+import androidx.navigation.NavDestination;
+
 import android.util.Log;
 import android.view.Menu;
 import android.view.MenuItem;
@@ -97,22 +101,42 @@ public class MainActivity extends AppCompatActivity {
                     @Override
                     public void onAuthenticationError(int errorCode, @NonNull CharSequence errString) {
                         super.onAuthenticationError(errorCode, errString);
-                        Snackbar.make(binding.getRoot(), "Authentication error: " + errString,
-                                Snackbar.LENGTH_SHORT).show();
+                        runOnUiThread(() -> {
+                            Snackbar.make(binding.getRoot(), "Authentication error: " + errString,
+                                    Snackbar.LENGTH_SHORT).show();
+                        });
                     }
 
                     @Override
                     public void onAuthenticationSucceeded(@NonNull BiometricPrompt.AuthenticationResult result) {
                         super.onAuthenticationSucceeded(result);
-                        // Navigate to password list on successful authentication
-                        navController.navigate(R.id.action_to_userProfileFragment);
+                        runOnUiThread(() -> {
+                            Toast.makeText(MainActivity.this, "Authentication successful!",
+                                    Toast.LENGTH_SHORT).show();
+
+                            // Get current fragment id to determine where to navigate
+                            NavDestination currentDest = navController.getCurrentDestination();
+                            if (currentDest != null) {
+                                int currentId = currentDest.getId();
+
+                                if (currentId == R.id.FirstFragment) {
+                                    // Coming from login screen
+                                    navController.navigate(R.id.action_to_passwordListFragment);
+                                } else if (currentId == R.id.authFragment) {
+                                    // Coming from dedicated auth screen
+                                    navController.navigate(R.id.action_authFragment_to_passwordListFragment);
+                                }
+                            }
+                        });
                     }
 
                     @Override
                     public void onAuthenticationFailed() {
                         super.onAuthenticationFailed();
-                        Snackbar.make(binding.getRoot(), "Authentication failed",
-                                Snackbar.LENGTH_SHORT).show();
+                        runOnUiThread(() -> {
+                            Snackbar.make(binding.getRoot(), "Authentication failed",
+                                    Snackbar.LENGTH_SHORT).show();
+                        });
                     }
                 });
 
@@ -120,8 +144,25 @@ public class MainActivity extends AppCompatActivity {
         promptInfo = new BiometricPrompt.PromptInfo.Builder()
                 .setTitle("Biometric Authentication")
                 .setSubtitle("Log in using your biometric credential")
+                .setDescription("Use your fingerprint or face to access your secure passwords")
+                .setAllowedAuthenticators(BiometricManager.Authenticators.BIOMETRIC_STRONG)
                 .setNegativeButtonText("Cancel")
                 .build();
+    }
+
+    /**
+     * Authenticate user with biometrics
+     */
+    public void authenticateUser() {
+        BiometricManager biometricManager = BiometricManager.from(this);
+
+        if (biometricManager.canAuthenticate(BiometricManager.Authenticators.BIOMETRIC_STRONG)
+                == BiometricManager.BIOMETRIC_SUCCESS) {
+            biometricPrompt.authenticate(promptInfo);
+        } else {
+            Toast.makeText(this, "Biometric authentication not available",
+                    Toast.LENGTH_SHORT).show();
+        }
     }
 
     /**
@@ -139,13 +180,6 @@ public class MainActivity extends AppCompatActivity {
 //                    }).show();
 //        });
 //    }
-
-    /**
-     * Authenticate user with biometrics
-     */
-    public void authenticateUser() {
-        biometricPrompt.authenticate(promptInfo);
-    }
 
     @Override
     public boolean onCreateOptionsMenu(Menu menu) {

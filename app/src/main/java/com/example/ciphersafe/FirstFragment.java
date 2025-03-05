@@ -10,6 +10,9 @@ import androidx.annotation.NonNull;
 import androidx.fragment.app.Fragment;
 import androidx.navigation.fragment.NavHostFragment;
 
+import androidx.biometric.BiometricManager;
+import androidx.biometric.BiometricPrompt;
+
 import com.example.ciphersafe.databinding.FragmentFirstBinding;
 import com.example.ciphersafe.SecurityManager;
 import com.example.ciphersafe.FirebaseAuthManager;
@@ -48,9 +51,20 @@ public class FirstFragment extends Fragment {
 
         );
 
+        // Add this to FirstFragment.java
         binding.biometricButton.setOnClickListener(v -> {
             if (getActivity() instanceof MainActivity) {
-                ((MainActivity) getActivity()).authenticateUser();
+                MainActivity activity = (MainActivity) getActivity();
+
+                // Check if biometric is available before attempting
+                BiometricManager biometricManager = BiometricManager.from(requireContext());
+                if (biometricManager.canAuthenticate(BiometricManager.Authenticators.BIOMETRIC_STRONG)
+                        == BiometricManager.BIOMETRIC_SUCCESS) {
+                    activity.authenticateUser();
+                } else {
+                    Toast.makeText(getContext(), "Biometric authentication not available on this device",
+                            Toast.LENGTH_SHORT).show();
+                }
             }
         });
     }

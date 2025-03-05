@@ -55,4 +55,5 @@ dependencies {
     implementation("com.google.firebase:firebase-firestore")
     implementation("com.google.firebase:firebase-core:21.1.1")
     implementation ("com.google.firebase:firebase-database:20.3.1")
+    implementation("androidx.biometric:biometric:1.1.0")
 }
