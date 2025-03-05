@@ -9,6 +9,7 @@ public class Credential implements Serializable {
     private String username;
     private String password;
     private long lastModified;
+    private String userId; // Add userId to associate credentials with specific users
 
     // Default constructor for new credentials
     public Credential() {
@@ -17,12 +18,18 @@ public class Credential implements Serializable {
     }
 
     // Constructor with all fields
-    public Credential(String serviceName, String username, String password) {
+    public Credential(String serviceName, String username, String password, String userId) {
         this.id = UUID.randomUUID().toString();
         this.serviceName = serviceName;
         this.username = username;
         this.password = password;
+        this.userId = userId;
         this.lastModified = System.currentTimeMillis();
+    }
+
+    // Constructor without userId for backward compatibility
+    public Credential(String serviceName, String username, String password) {
+        this(serviceName, username, password, null);
     }
 
     // Getters and Setters
@@ -67,6 +74,14 @@ public class Credential implements Serializable {
 
     public void setLastModified(long lastModified) {
         this.lastModified = lastModified;
+    }
+
+    public String getUserId() {
+        return userId;
+    }
+
+    public void setUserId(String userId) {
+        this.userId = userId;
     }
 
     @Override

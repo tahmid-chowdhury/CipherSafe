@@ -1,6 +1,5 @@
 package com.example.ciphersafe;
 
-
 import android.content.ContentValues;
 import android.content.Context;
 import android.database.Cursor;
@@ -31,6 +30,7 @@ public class CredentialDatabaseHelper extends SQLiteOpenHelper {
     private static final String KEY_CREDENTIAL_USERNAME = "username";
     private static final String KEY_CREDENTIAL_PASSWORD = "password";
     private static final String KEY_CREDENTIAL_LAST_MODIFIED = "last_modified";
+    private static final String KEY_CREDENTIAL_USER_ID = "user_id"; // New column for user association
 
     // Singleton instance
     private static CredentialDatabaseHelper instance;
@@ -56,7 +56,8 @@ public class CredentialDatabaseHelper extends SQLiteOpenHelper {
                 KEY_CREDENTIAL_SERVICE_NAME + " TEXT," +
                 KEY_CREDENTIAL_USERNAME + " TEXT," +
                 KEY_CREDENTIAL_PASSWORD + " TEXT," +
-                KEY_CREDENTIAL_LAST_MODIFIED + " INTEGER" +
+                KEY_CREDENTIAL_LAST_MODIFIED + " INTEGER," +
+                KEY_CREDENTIAL_USER_ID + " TEXT" + // Add user ID column
                 ")";
 
         db.execSQL(CREATE_CREDENTIALS_TABLE);
@@ -66,9 +67,15 @@ public class CredentialDatabaseHelper extends SQLiteOpenHelper {
     @Override
     public void onUpgrade(SQLiteDatabase db, int oldVersion, int newVersion) {
         if (oldVersion != newVersion) {
-            // Handle database migration
-            db.execSQL("DROP TABLE IF EXISTS " + TABLE_CREDENTIALS);
-            onCreate(db);
+            // For an upgrade from version without user_id column to one with it
+            if (oldVersion == 1 && newVersion == 2) {
+                db.execSQL("ALTER TABLE " + TABLE_CREDENTIALS +
+                        " ADD COLUMN " + KEY_CREDENTIAL_USER_ID + " TEXT");
+            } else {
+                // Complete database rebuild
+                db.execSQL("DROP TABLE IF EXISTS " + TABLE_CREDENTIALS);
+                onCreate(db);
+            }
         }
     }
 
@@ -88,6 +95,7 @@ public class CredentialDatabaseHelper extends SQLiteOpenHelper {
             String encryptedPassword = EncryptionUtil.encrypt(context, credential.getPassword());
             values.put(KEY_CREDENTIAL_PASSWORD, encryptedPassword);
             values.put(KEY_CREDENTIAL_LAST_MODIFIED, credential.getLastModified());
+            values.put(KEY_CREDENTIAL_USER_ID, credential.getUserId()); // Store user ID
 
             db.insertOrThrow(TABLE_CREDENTIALS, null, values);
             db.setTransactionSuccessful();
@@ -98,7 +106,47 @@ public class CredentialDatabaseHelper extends SQLiteOpenHelper {
         }
     }
 
-    // Get all credentials
+    // Get all credentials for a specific user
+    public List<Credential> getCredentialsForUser(String userId) {
+        List<Credential> credentials = new ArrayList<>();
+
+        String CREDENTIALS_SELECT_QUERY = String.format("SELECT * FROM %s WHERE %s = ? ORDER BY %s DESC",
+                TABLE_CREDENTIALS, KEY_CREDENTIAL_USER_ID, KEY_CREDENTIAL_LAST_MODIFIED);
+
+        SQLiteDatabase db = getReadableDatabase();
+        Cursor cursor = db.rawQuery(CREDENTIALS_SELECT_QUERY, new String[]{userId});
+
+        try {
+            if (cursor.moveToFirst()) {
+                do {
+                    Credential credential = new Credential();
+                    credential.setId(cursor.getString(cursor.getColumnIndexOrThrow(KEY_CREDENTIAL_ID)));
+                    credential.setServiceName(cursor.getString(cursor.getColumnIndexOrThrow(KEY_CREDENTIAL_SERVICE_NAME)));
+                    credential.setUsername(cursor.getString(cursor.getColumnIndexOrThrow(KEY_CREDENTIAL_USERNAME)));
+
+                    // Decrypt password when reading from database
+                    String encryptedPassword = cursor.getString(cursor.getColumnIndexOrThrow(KEY_CREDENTIAL_PASSWORD));
+                    String decryptedPassword = EncryptionUtil.decrypt(context, encryptedPassword);
+                    credential.setPassword(decryptedPassword);
+
+                    credential.setLastModified(cursor.getLong(cursor.getColumnIndexOrThrow(KEY_CREDENTIAL_LAST_MODIFIED)));
+                    credential.setUserId(cursor.getString(cursor.getColumnIndexOrThrow(KEY_CREDENTIAL_USER_ID)));
+
+                    credentials.add(credential);
+                } while (cursor.moveToNext());
+            }
+        } catch (Exception e) {
+            Log.e(TAG, "Error while getting credentials for user", e);
+        } finally {
+            if (cursor != null && !cursor.isClosed()) {
+                cursor.close();
+            }
+        }
+
+        return credentials;
+    }
+
+    // Get all credentials (for backward compatibility or admin use)
     public List<Credential> getAllCredentials() {
         List<Credential> credentials = new ArrayList<>();
 
@@ -123,11 +171,18 @@ public class CredentialDatabaseHelper extends SQLiteOpenHelper {
 
                     credential.setLastModified(cursor.getLong(cursor.getColumnIndexOrThrow(KEY_CREDENTIAL_LAST_MODIFIED)));
 
+                    // Get user_id if it exists in the table (handle potential missing column)
+                    try {
+                        credential.setUserId(cursor.getString(cursor.getColumnIndexOrThrow(KEY_CREDENTIAL_USER_ID)));
+                    } catch (IllegalArgumentException e) {
+                        credential.setUserId(null); // Set null for older database entries
+                    }
+
                     credentials.add(credential);
                 } while (cursor.moveToNext());
             }
         } catch (Exception e) {
-            Log.e(TAG, "Error while getting credentials", e);
+            Log.e(TAG, "Error while getting all credentials", e);
         } finally {
             if (cursor != null && !cursor.isClosed()) {
                 cursor.close();
@@ -149,6 +204,11 @@ public class CredentialDatabaseHelper extends SQLiteOpenHelper {
         values.put(KEY_CREDENTIAL_PASSWORD, encryptedPassword);
         values.put(KEY_CREDENTIAL_LAST_MODIFIED, System.currentTimeMillis());
 
+        // Update user ID if present
+        if (credential.getUserId() != null) {
+            values.put(KEY_CREDENTIAL_USER_ID, credential.getUserId());
+        }
+
         return db.update(TABLE_CREDENTIALS, values, KEY_CREDENTIAL_ID + " = ?",
                 new String[]{credential.getId()});
     }
@@ -157,5 +217,11 @@ public class CredentialDatabaseHelper extends SQLiteOpenHelper {
     public void deleteCredential(String credentialId) {
         SQLiteDatabase db = getWritableDatabase();
         db.delete(TABLE_CREDENTIALS, KEY_CREDENTIAL_ID + " = ?", new String[]{credentialId});
+    }
+
+    // Delete all credentials for a specific user
+    public void deleteCredentialsForUser(String userId) {
+        SQLiteDatabase db = getWritableDatabase();
+        db.delete(TABLE_CREDENTIALS, KEY_CREDENTIAL_USER_ID + " = ?", new String[]{userId});
     }
 }

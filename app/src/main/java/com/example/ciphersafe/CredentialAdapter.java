@@ -38,6 +38,10 @@ public class CredentialAdapter extends RecyclerView.Adapter<CredentialAdapter.Cr
 
     @Override
     public void onBindViewHolder(@NonNull CredentialViewHolder holder, int position) {
+        if (position < 0 || position >= credentials.size()) {
+            return; // Safety check to prevent out of bounds exceptions
+        }
+
         Credential credential = credentials.get(position);
         holder.bind(credential, position);
     }
@@ -48,23 +52,34 @@ public class CredentialAdapter extends RecyclerView.Adapter<CredentialAdapter.Cr
     }
 
     public void setCredentials(List<Credential> credentials) {
-        this.credentials = credentials;
+        // Safety check - make sure the passed list is not null
+        this.credentials = credentials != null ? new ArrayList<>(credentials) : new ArrayList<>();
         notifyDataSetChanged();
     }
 
     public void addCredential(Credential credential) {
-        credentials.add(credential);
-        notifyItemInserted(credentials.size() - 1);
+        if (credential != null) {
+            credentials.add(credential);
+            notifyItemInserted(credentials.size() - 1);
+        }
     }
 
     public void updateCredential(Credential credential, int position) {
-        credentials.set(position, credential);
-        notifyItemChanged(position);
+        // Check if position is valid before updating
+        if (credential != null && position >= 0 && position < credentials.size()) {
+            credentials.set(position, credential);
+            notifyItemChanged(position);
+        }
     }
 
     public void removeCredential(int position) {
-        credentials.remove(position);
-        notifyItemRemoved(position);
+        // Check if position is valid before removing
+        if (position >= 0 && position < credentials.size()) {
+            credentials.remove(position);
+            notifyItemRemoved(position);
+            // Notify about the changes in positions of subsequent items
+            notifyItemRangeChanged(position, credentials.size() - position);
+        }
     }
 
     class CredentialViewHolder extends RecyclerView.ViewHolder {
@@ -93,23 +108,36 @@ public class CredentialAdapter extends RecyclerView.Adapter<CredentialAdapter.Cr
             passwordTextView.setText("••••••••");
             isPasswordVisible = false;
 
+            // Use lambdas with local final position to avoid position changes after binding
+            final int currentPosition = position;
+
             showPasswordButton.setOnClickListener(v -> {
                 if (isPasswordVisible) {
                     passwordTextView.setText("••••••••");
                     isPasswordVisible = false;
                 } else {
-                    listener.onShowPasswordClick(credential, position);
-                    passwordTextView.setText(credential.getPassword());
-                    isPasswordVisible = true;
+                    // Make sure the credential is still at the expected position
+                    if (currentPosition < credentials.size()) {
+                        Credential currentCredential = credentials.get(currentPosition);
+                        listener.onShowPasswordClick(currentCredential, currentPosition);
+                        passwordTextView.setText(currentCredential.getPassword());
+                        isPasswordVisible = true;
+                    }
                 }
             });
 
             editButton.setOnClickListener(v -> {
-                listener.onEditClick(credential, position);
+                // Make sure the credential is still at the expected position
+                if (currentPosition < credentials.size()) {
+                    listener.onEditClick(credentials.get(currentPosition), currentPosition);
+                }
             });
 
             deleteButton.setOnClickListener(v -> {
-                listener.onDeleteClick(credential, position);
+                // Make sure the credential is still at the expected position
+                if (currentPosition < credentials.size()) {
+                    listener.onDeleteClick(credentials.get(currentPosition), currentPosition);
+                }
             });
         }
     }

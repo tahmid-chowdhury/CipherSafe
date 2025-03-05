@@ -15,7 +15,10 @@ import androidx.recyclerview.widget.LinearLayoutManager;
 import androidx.recyclerview.widget.RecyclerView;
 
 import com.google.android.material.floatingactionbutton.FloatingActionButton;
+import com.google.firebase.auth.FirebaseAuth;
+import com.google.firebase.auth.FirebaseUser;
 
+import java.util.ArrayList;
 import java.util.List;
 
 public class UserProfileFragment extends Fragment implements CredentialAdapter.OnCredentialClickListener {
@@ -28,6 +31,8 @@ public class UserProfileFragment extends Fragment implements CredentialAdapter.O
     private List<Credential> credentialsList;
     private CredentialDatabaseHelper dbHelper;
     private FloatingActionButton addButton;
+    private FirebaseAuth firebaseAuth;
+    private String currentUserId;
 
     @Nullable
     @Override
@@ -37,6 +42,22 @@ public class UserProfileFragment extends Fragment implements CredentialAdapter.O
 
         // Initialize database helper
         dbHelper = CredentialDatabaseHelper.getInstance(requireContext());
+
+        // Initialize credentials list
+        credentialsList = new ArrayList<>();
+
+        // Get current user ID
+        firebaseAuth = FirebaseAuth.getInstance();
+        FirebaseUser currentUser = firebaseAuth.getCurrentUser();
+
+        if (currentUser != null) {
+            currentUserId = currentUser.getUid();
+        } else {
+            // Handle case where user is not logged in
+            Toast.makeText(requireContext(), "You must be logged in to view credentials", Toast.LENGTH_LONG).show();
+            // You might want to navigate back to login screen here
+            return view;
+        }
 
         // Setup RecyclerView
         credentialsRecyclerView = view.findViewById(R.id.credentialsRecyclerView);
@@ -49,6 +70,8 @@ public class UserProfileFragment extends Fragment implements CredentialAdapter.O
         addButton = view.findViewById(R.id.addCredentialButton);
         addButton.setOnClickListener(v -> {
             Intent intent = new Intent(requireActivity(), Add_Edit_Activity.class);
+            // Pass the current user ID to the add activity
+            intent.putExtra("userId", currentUserId);
             startActivityForResult(intent, ADD_CREDENTIAL_REQUEST_CODE);
         });
 
@@ -63,36 +86,79 @@ public class UserProfileFragment extends Fragment implements CredentialAdapter.O
     }
 
     private void loadCredentials() {
-        // Get credentials from SQLite database
-        credentialsList = dbHelper.getAllCredentials();
-        adapter.setCredentials(credentialsList);
+        if (currentUserId != null) {
+            // Load only credentials that belong to the current user
+            credentialsList = dbHelper.getCredentialsForUser(currentUserId);
+            adapter.setCredentials(credentialsList);
+
+            if (credentialsList.isEmpty()) {
+                // Show a message if no credentials exist
+                Toast.makeText(requireContext(), "No saved credentials. Add your first one!", Toast.LENGTH_SHORT).show();
+            }
+        }
     }
 
     @Override
     public void onEditClick(Credential credential, int position) {
+        // Check if position is valid
+        if (position < 0 || position >= credentialsList.size()) {
+            Toast.makeText(requireContext(), "Error: Invalid credential position", Toast.LENGTH_SHORT).show();
+            return;
+        }
+
         Intent intent = new Intent(requireActivity(), Add_Edit_Activity.class);
         intent.putExtra("credential", credential);
         intent.putExtra("position", position);
+        // Also pass the user ID in case it's needed
+        intent.putExtra("userId", currentUserId);
         startActivityForResult(intent, EDIT_CREDENTIAL_REQUEST_CODE);
     }
 
     @Override
     public void onDeleteClick(Credential credential, int position) {
-        new AlertDialog.Builder(requireContext())
-                .setTitle("Delete Credential")
-                .setMessage("Are you sure you want to delete this credential?")
-                .setPositiveButton("Delete", (dialog, which) -> {
-                    // Delete from database
-                    dbHelper.deleteCredential(credential.getId());
+        // Safety check - verify position is valid
+        if (position < 0 || position >= credentialsList.size()) {
+            Toast.makeText(requireContext(), "Error: Invalid position", Toast.LENGTH_SHORT).show();
+            // Reload credentials to refresh the UI state
+            loadCredentials();
+            return;
+        }
 
-                    // Update UI
-                    adapter.removeCredential(position);
-                    credentialsList.remove(position);
+        // Check if this credential belongs to the current user
+        if (credential.getUserId() == null || credential.getUserId().equals(currentUserId)) {
+            new AlertDialog.Builder(requireContext())
+                    .setTitle("Delete Credential")
+                    .setMessage("Are you sure you want to delete this credential?")
+                    .setPositiveButton("Delete", (dialog, which) -> {
+                        try {
+                            // Delete from database first
+                            dbHelper.deleteCredential(credential.getId());
 
-                    Toast.makeText(requireContext(), "Credential deleted", Toast.LENGTH_SHORT).show();
-                })
-                .setNegativeButton("Cancel", null)
-                .show();
+                            // Then remove from the adapter
+                            adapter.removeCredential(position);
+
+                            // Finally remove from our list (safely)
+                            if (position >= 0 && position < credentialsList.size()) {
+                                credentialsList.remove(position);
+                            } else {
+                                // If the index is somehow out of bounds, reload everything
+                                loadCredentials();
+                            }
+
+                            Toast.makeText(requireContext(), "Credential deleted", Toast.LENGTH_SHORT).show();
+                        } catch (Exception e) {
+                            // Handle any exceptions that might occur
+                            Toast.makeText(requireContext(), "Error deleting credential: " + e.getMessage(),
+                                    Toast.LENGTH_SHORT).show();
+                            // Reload to ensure UI is in sync with database
+                            loadCredentials();
+                        }
+                    })
+                    .setNegativeButton("Cancel", null)
+                    .show();
+        } else {
+            Toast.makeText(requireContext(), "You can only delete your own credentials", Toast.LENGTH_SHORT).show();
+        }
     }
 
     @Override
@@ -109,26 +175,37 @@ public class UserProfileFragment extends Fragment implements CredentialAdapter.O
             if (data != null && data.hasExtra("credential")) {
                 Credential credential = (Credential) data.getSerializableExtra("credential");
 
+                // Ensure the credential has the current user's ID
+                if (credential.getUserId() == null) {
+                    credential.setUserId(currentUserId);
+                }
+
                 if (requestCode == ADD_CREDENTIAL_REQUEST_CODE) {
                     // Add to database
                     dbHelper.addCredential(credential);
 
-                    // Update UI
-                    credentialsList.add(credential);
-                    adapter.addCredential(credential);
+                    // Reload all credentials to ensure consistency
+                    loadCredentials();
 
                     Toast.makeText(requireContext(), "Credential added", Toast.LENGTH_SHORT).show();
                 } else if (requestCode == EDIT_CREDENTIAL_REQUEST_CODE) {
                     int position = data.getIntExtra("position", -1);
-                    if (position != -1) {
-                        // Update in database
-                        dbHelper.updateCredential(credential);
+                    if (position != -1 && position < credentialsList.size()) {
+                        // Only allow editing if credential belongs to current user
+                        if (credential.getUserId() == null || credential.getUserId().equals(currentUserId)) {
+                            // Update in database
+                            dbHelper.updateCredential(credential);
 
-                        // Update UI
-                        credentialsList.set(position, credential);
-                        adapter.updateCredential(credential, position);
+                            // Reload all credentials to ensure consistency
+                            loadCredentials();
 
-                        Toast.makeText(requireContext(), "Credential updated", Toast.LENGTH_SHORT).show();
+                            Toast.makeText(requireContext(), "Credential updated", Toast.LENGTH_SHORT).show();
+                        } else {
+                            Toast.makeText(requireContext(), "You can only edit your own credentials", Toast.LENGTH_SHORT).show();
+                        }
+                    } else {
+                        // Position is invalid, reload everything
+                        loadCredentials();
                     }
                 }
             }

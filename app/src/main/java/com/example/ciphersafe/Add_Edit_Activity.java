@@ -10,6 +10,8 @@ import android.widget.Toast;
 import androidx.appcompat.app.AppCompatActivity;
 
 import com.google.android.material.textfield.TextInputEditText;
+import com.google.firebase.auth.FirebaseAuth;
+import com.google.firebase.auth.FirebaseUser;
 
 import java.security.SecureRandom;
 
@@ -26,6 +28,7 @@ public class Add_Edit_Activity extends AppCompatActivity {
     private Credential credential;
     private int position = -1;
     private boolean isEditMode = false;
+    private String userId;
 
     @Override
     protected void onCreate(Bundle savedInstanceState) {
@@ -41,15 +44,41 @@ public class Add_Edit_Activity extends AppCompatActivity {
         saveButton = findViewById(R.id.saveButton);
         cancelButton = findViewById(R.id.cancelButton);
 
+        // Get current user ID
+        userId = getIntent().getStringExtra("userId");
+
+        // If userId wasn't passed from previous screen, try to get from Firebase Auth
+        if (userId == null) {
+            FirebaseUser currentUser = FirebaseAuth.getInstance().getCurrentUser();
+            if (currentUser != null) {
+                userId = currentUser.getUid();
+            } else {
+                // No user logged in - might want to handle this case
+                Toast.makeText(this, "Error: No user logged in", Toast.LENGTH_SHORT).show();
+                finish();
+                return;
+            }
+        }
+
         // Check if we're in edit mode
         if (getIntent().hasExtra("credential")) {
             credential = (Credential) getIntent().getSerializableExtra("credential");
             position = getIntent().getIntExtra("position", -1);
             isEditMode = true;
             titleTextView.setText("Edit Credential");
+
+            // Check if this credential belongs to the current user
+            if (credential.getUserId() != null && !credential.getUserId().equals(userId)) {
+                Toast.makeText(this, "You can only edit your own credentials", Toast.LENGTH_SHORT).show();
+                finish();
+                return;
+            }
+
             fillFields();
         } else {
             credential = new Credential();
+            // Set user ID for new credential
+            credential.setUserId(userId);
             titleTextView.setText("Add New Credential");
         }
 
@@ -107,6 +136,7 @@ public class Add_Edit_Activity extends AppCompatActivity {
         credential.setServiceName(serviceName);
         credential.setUsername(username);
         credential.setPassword(password);
+        credential.setUserId(userId); // Ensure user ID is set
 
         Intent resultIntent = new Intent();
         resultIntent.putExtra("credential", credential);
