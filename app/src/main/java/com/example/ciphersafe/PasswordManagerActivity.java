@@ -2,15 +2,10 @@ package com.example.ciphersafe;
 
 import android.content.Intent;
 import android.os.Bundle;
-import android.view.LayoutInflater;
-import android.view.View;
-import android.view.ViewGroup;
 import android.widget.Toast;
 
-import androidx.annotation.NonNull;
-import androidx.annotation.Nullable;
 import androidx.appcompat.app.AlertDialog;
-import androidx.fragment.app.Fragment;
+import androidx.appcompat.app.AppCompatActivity;
 import androidx.recyclerview.widget.LinearLayoutManager;
 import androidx.recyclerview.widget.RecyclerView;
 
@@ -18,7 +13,7 @@ import com.google.android.material.floatingactionbutton.FloatingActionButton;
 
 import java.util.List;
 
-public class UserProfileFragment extends Fragment implements CredentialAdapter.OnCredentialClickListener {
+public class PasswordManagerActivity extends AppCompatActivity implements CredentialAdapter.OnCredentialClickListener {
 
     private static final int ADD_CREDENTIAL_REQUEST_CODE = 100;
     private static final int EDIT_CREDENTIAL_REQUEST_CODE = 101;
@@ -27,38 +22,34 @@ public class UserProfileFragment extends Fragment implements CredentialAdapter.O
     private CredentialAdapter adapter;
     private List<Credential> credentialsList;
     private CredentialDatabaseHelper dbHelper;
-    private FloatingActionButton addButton;
 
-    @Nullable
     @Override
-    public View onCreateView(@NonNull LayoutInflater inflater, @Nullable ViewGroup container, @Nullable Bundle savedInstanceState) {
-        // Inflate the fragment layout
-        View view = inflater.inflate(R.layout.fragment_user_profile, container, false);
+    protected void onCreate(Bundle savedInstanceState) {
+        super.onCreate(savedInstanceState);
+        setContentView(R.layout.fragment_user_profile);
 
         // Initialize database helper
-        dbHelper = CredentialDatabaseHelper.getInstance(requireContext());
+        dbHelper = CredentialDatabaseHelper.getInstance(this);
 
         // Setup RecyclerView
-        credentialsRecyclerView = view.findViewById(R.id.credentialsRecyclerView);
-        credentialsRecyclerView.setLayoutManager(new LinearLayoutManager(requireContext()));
+        credentialsRecyclerView = findViewById(R.id.credentialsRecyclerView);
+        credentialsRecyclerView.setLayoutManager(new LinearLayoutManager(this));
 
         adapter = new CredentialAdapter(this);
         credentialsRecyclerView.setAdapter(adapter);
 
         // Setup Add button
-        addButton = view.findViewById(R.id.addCredentialButton);
+        FloatingActionButton addButton = findViewById(R.id.addCredentialButton);
         addButton.setOnClickListener(v -> {
-            Intent intent = new Intent(requireActivity(), Add_Edit_Activity.class);
+            Intent intent = new Intent(PasswordManagerActivity.this, AddEditCredentialActivity.class);
             startActivityForResult(intent, ADD_CREDENTIAL_REQUEST_CODE);
         });
-
-        return view;
     }
 
     @Override
-    public void onResume() {
+    protected void onResume() {
         super.onResume();
-        // Load credentials from database each time fragment is shown
+        // Load credentials from database each time activity is shown
         loadCredentials();
     }
 
@@ -70,7 +61,7 @@ public class UserProfileFragment extends Fragment implements CredentialAdapter.O
 
     @Override
     public void onEditClick(Credential credential, int position) {
-        Intent intent = new Intent(requireActivity(), Add_Edit_Activity.class);
+        Intent intent = new Intent(PasswordManagerActivity.this, AddEditCredentialActivity.class);
         intent.putExtra("credential", credential);
         intent.putExtra("position", position);
         startActivityForResult(intent, EDIT_CREDENTIAL_REQUEST_CODE);
@@ -78,7 +69,7 @@ public class UserProfileFragment extends Fragment implements CredentialAdapter.O
 
     @Override
     public void onDeleteClick(Credential credential, int position) {
-        new AlertDialog.Builder(requireContext())
+        new AlertDialog.Builder(this)
                 .setTitle("Delete Credential")
                 .setMessage("Are you sure you want to delete this credential?")
                 .setPositiveButton("Delete", (dialog, which) -> {
@@ -89,7 +80,7 @@ public class UserProfileFragment extends Fragment implements CredentialAdapter.O
                     adapter.removeCredential(position);
                     credentialsList.remove(position);
 
-                    Toast.makeText(requireContext(), "Credential deleted", Toast.LENGTH_SHORT).show();
+                    Toast.makeText(PasswordManagerActivity.this, "Credential deleted", Toast.LENGTH_SHORT).show();
                 })
                 .setNegativeButton("Cancel", null)
                 .show();
@@ -102,10 +93,10 @@ public class UserProfileFragment extends Fragment implements CredentialAdapter.O
     }
 
     @Override
-    public void onActivityResult(int requestCode, int resultCode, Intent data) {
+    protected void onActivityResult(int requestCode, int resultCode, Intent data) {
         super.onActivityResult(requestCode, resultCode, data);
 
-        if (resultCode == requireActivity().RESULT_OK) {
+        if (resultCode == RESULT_OK) {
             if (data != null && data.hasExtra("credential")) {
                 Credential credential = (Credential) data.getSerializableExtra("credential");
 
@@ -117,7 +108,7 @@ public class UserProfileFragment extends Fragment implements CredentialAdapter.O
                     credentialsList.add(credential);
                     adapter.addCredential(credential);
 
-                    Toast.makeText(requireContext(), "Credential added", Toast.LENGTH_SHORT).show();
+                    Toast.makeText(this, "Credential added", Toast.LENGTH_SHORT).show();
                 } else if (requestCode == EDIT_CREDENTIAL_REQUEST_CODE) {
                     int position = data.getIntExtra("position", -1);
                     if (position != -1) {
@@ -128,7 +119,7 @@ public class UserProfileFragment extends Fragment implements CredentialAdapter.O
                         credentialsList.set(position, credential);
                         adapter.updateCredential(credential, position);
 
-                        Toast.makeText(requireContext(), "Credential updated", Toast.LENGTH_SHORT).show();
+                        Toast.makeText(this, "Credential updated", Toast.LENGTH_SHORT).show();
                     }
                 }
             }

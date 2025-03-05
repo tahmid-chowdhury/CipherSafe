@@ -1,5 +1,6 @@
 package com.example.ciphersafe;
 
+
 import android.content.Intent;
 import android.os.Bundle;
 import android.text.TextUtils;
@@ -12,8 +13,9 @@ import androidx.appcompat.app.AppCompatActivity;
 import com.google.android.material.textfield.TextInputEditText;
 
 import java.security.SecureRandom;
+import java.util.Random;
 
-public class Add_Edit_Activity extends AppCompatActivity {
+public class AddEditCredentialActivity extends AppCompatActivity {
 
     private TextInputEditText serviceNameEditText;
     private TextInputEditText usernameEditText;
