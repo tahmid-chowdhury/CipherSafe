@@ -27,13 +27,11 @@ public class UserProfileFragment extends Fragment {
     @Override
     public View onCreateView(@NonNull LayoutInflater inflater, ViewGroup container, Bundle savedInstanceState) {
 
-            securityManager = ((MainActivity) getActivity()).getSecurityManager();
+        securityManager = ((MainActivity) getActivity()).getSecurityManager();
 
         View view = inflater.inflate(R.layout.fragment_user_profile, container, false);
 
-        emailTextView = view.findViewById(R.id.emailTextView);
-        usernameTextView = view.findViewById(R.id.usernameTextView);
-        passwordTextView = view.findViewById(R.id.passwordTextView);
+
 
         currentUser = FirebaseAuth.getInstance().getCurrentUser();
         if (currentUser != null) {
