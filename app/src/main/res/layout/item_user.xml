@@ -18,11 +18,11 @@
             android:id="@+id/nameTextView"
             android:layout_width="wrap_content"
             android:layout_height="wrap_content"
-            android:text="User Name"
-            android:textSize="20sp"
-            android:textStyle="bold"
+            android:paddingBottom="8dp"
+            android:text="Title"
             android:textColor="@android:color/black"
-            android:paddingBottom="8dp"/>
+            android:textSize="20sp"
+            android:textStyle="bold" />
 
         <TextView
             android:layout_width="wrap_content"
