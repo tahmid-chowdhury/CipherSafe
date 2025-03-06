@@ -19,7 +19,7 @@
             android:layout_width="wrap_content"
             android:layout_height="wrap_content"
             android:paddingBottom="8dp"
-            android:text="Title"
+            android:text="Name/Service"
             android:textColor="@android:color/black"
             android:textSize="20sp"
             android:textStyle="bold" />
